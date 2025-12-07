@@ -6,20 +6,24 @@
 #include "common.h"
 #include "tmux.h"
 
+// Calls a specified set of tmux commands and writes stdout to buffer
 int tmux_call(char *buffer, size_t bufsize, int nargs, ...) {
 	va_list args;
 	va_start(args, nargs);
 
+	// Create pipe to redirect stdout
 	int pipefd[2];
 	if (pipe(pipefd) == -1) {
 		err_printf("Pipe failed!\n");
 		exit(-ERR_PROC);
 	}
 
+	// Create subprocess
 	pid_t wpid, pid = fork();	
 	int status = -1;
 	switch (pid) {
 		case -1:
+			// Could not create subprocess, exit
 			if (buffer != NULL) {
 				close(pipefd[0]); close(pipefd[1]);
 			}
@@ -31,6 +35,7 @@ int tmux_call(char *buffer, size_t bufsize, int nargs, ...) {
 			dup2(pipefd[1], STDOUT_FILENO);
 			close(pipefd[1]);
 
+			// Make commands list, including ending and start
 			char *new_cmd[nargs + 2];
 			new_cmd[0] = "tmux";
 			for (int i = 1; i <= nargs; i++) {
@@ -44,9 +49,12 @@ int tmux_call(char *buffer, size_t bufsize, int nargs, ...) {
 		default:
 			break;
 	}
+	// Parent process
 	size_t pos = 0;
 	fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
 	while ((wpid = waitpid(pid, &status, WNOHANG)) == 0) {
+		// Read stdout from pipe to buffer, until process
+		// exits
 		ssize_t size = read(pipefd[0], buffer+pos, 
 						bufsize - pos - 1);
 		if (size < 0) continue;
