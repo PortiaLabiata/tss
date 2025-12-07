@@ -20,3 +20,4 @@ int app_ps(int argc, char **argv);
 int app_run(int argc, char **argv);
 int app_new(int argc, char **argv);
 int app_edit(int argc, char **argv);
+int app_help(int argc, char **argv);

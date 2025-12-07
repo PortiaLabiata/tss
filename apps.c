@@ -16,7 +16,7 @@
 static const char *_getenv_path();
 static char buffer[BUFSIZE] = {0};
 
-static struct {
+static struct _cb_map_s {
 	const char *name;
 	app_cb_t callback;
 } _cb_map[] = {
@@ -25,6 +25,7 @@ static struct {
 	{"ps", &app_ps},
 	{"new", &app_new},
 	{"edit", &app_edit},
+	{"help", &app_help},
 };
 
 static const char *_getenv_path() {
@@ -37,7 +38,7 @@ static const char *_getenv_path() {
 }
 
 app_cb_t find_app_cb(char *name) {
-	for (size_t i = 0; i < sizeof(_cb_map); i++) {
+	for (size_t i = 0; i < sizeof(_cb_map)/sizeof(struct _cb_map_s); i++) {
 		if (streq(_cb_map[i].name, name)) {
 			return _cb_map[i].callback;
 		}
@@ -256,4 +257,16 @@ int app_edit(int argc, char **argv) {
 	}
 	err_printf("Could not find session %s\n", argv[0]);
 	exit(-ERR_FS);
+}
+
+int app_help(int argc, char **argv) {
+	(void)argc; (void)argv;
+	puts("TSS - a simple tmux session resurrector.");
+	puts("Usage: tss <command> <args>");
+	puts("ls \t - \t list all session scripts in $TMUX_SESSIONS directory;");
+	puts("ps \t - \t list all active TSS sessions;");
+	puts("new \t - \t create new session script;");
+	puts("edit \t - \t edit session script;");
+	puts("run \t - \t run session script.");
+	return 0;
 }
