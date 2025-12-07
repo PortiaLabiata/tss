@@ -1,6 +1,8 @@
 #include <getopt.h>
 #include <dirent.h>
+#include <limits.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "common.h"
 #include "apps.h"
@@ -16,9 +18,10 @@ static struct {
 	const char *name;
 	app_cb_t callback;
 } _cb_map[] = {
-	{"run", NULL},
+	{"run", &app_run},
 	{"ls", &app_ls},
 	{"ps", &app_ps},
+	{"new", &app_new},
 };
 
 static const char *_getenv_path() {
@@ -171,5 +174,26 @@ int app_ps(int argc, char **argv) {
 }
 
 int app_run(int argc, char **argv) {
-	return 0;
+	if (argc < 2) {
+		err_printf("run: not enough arguments");
+		exit(-ERR_SYN);
+	}
+
+	struct session_s *head, *ptr;
+	head = ptr = read_sessions();
+	
+	while (ptr) {
+		if (streq(ptr->name, argv[1])) {
+			char s[4096] = {0};
+			snprintf(s, 4096, "%s/%s.sh", _getenv_path(), ptr->name);
+			session_free(head);
+
+			execl(s, s, (char*)0);
+
+			err_printf("run: couldn't launch process\n");
+			exit(-ERR_PROC);
+		}
+		ptr = ptr->next;
+	}
+	exit(-ERR_PROC);
 }
