@@ -15,6 +15,6 @@ int main(int argc, char **argv) {
 		exit(-ERR_SYN);
 	}
 
-	cb(argc-1, argv+1);
+	cb(argc-2, &argv[2]);
 	return 0;
 }

@@ -9,6 +9,7 @@ enum errors_t {
 	ERR_PROC,
 	ERR_MEM,
 	ERR_SYN,
+	ERR_FS,
 };
 
 #define streq(__a__, __b__) (strcmp(__a__, __b__) == 0)

@@ -14,6 +14,8 @@ int app_ls(int argc, char **argv);
 struct session_s *session_create(const char *name);
 struct session_s *read_sessions();
 void session_free(struct session_s *head);
+
 int app_ls(int argc, char **argv);
 int app_ps(int argc, char **argv);
 int app_run(int argc, char **argv);
+int app_new(int argc, char **argv);

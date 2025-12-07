@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "common.h"
 #include "apps.h"
@@ -127,14 +128,14 @@ int app_ls(int argc, char **argv) {
 	(void)argc; (void)argv;
 	int (*filter)(const char*, void*) = &filter_any;
 
-	if (argc > 1) {
+	if (argc > 0) {
 		filter = &filter_exact;	
 	}
 
 	struct session_s *head, *ptr;
 	head = ptr = read_sessions();
 	while (ptr) {
-		if (filter(ptr->name, argv[1])) {
+		if (filter(ptr->name, argv[0])) {
 			printf("%s\n", ptr->name);
 		}
 		ptr = ptr->next;
@@ -174,7 +175,7 @@ int app_ps(int argc, char **argv) {
 }
 
 int app_run(int argc, char **argv) {
-	if (argc < 2) {
+	if (argc < 1) {
 		err_printf("run: not enough arguments");
 		exit(-ERR_SYN);
 	}
@@ -183,7 +184,7 @@ int app_run(int argc, char **argv) {
 	head = ptr = read_sessions();
 	
 	while (ptr) {
-		if (streq(ptr->name, argv[1])) {
+		if (streq(ptr->name, argv[0])) {
 			char s[4096] = {0};
 			snprintf(s, 4096, "%s/%s.sh", _getenv_path(), ptr->name);
 			session_free(head);
@@ -196,4 +197,25 @@ int app_run(int argc, char **argv) {
 		ptr = ptr->next;
 	}
 	exit(-ERR_PROC);
+}
+
+// TODO: DRY in argc check!
+int app_new(int argc, char **argv) {
+	if (argc < 1) {
+		err_printf("new: not enough arguments!\n");
+		exit(-ERR_SYN);
+	}
+
+	char s[4096] = {0};
+	snprintf(s, 4096, "%s/%s.sh", _getenv_path(), argv[0]);
+
+	FILE *f = fopen(s, "a");
+	chmod(s, S_IRWXU);
+
+	if (!f) {
+		err_printf("Could not create file %s\n", s);
+		exit(-ERR_FS);
+	}
+	fclose(f);
+	return 0;
 }
