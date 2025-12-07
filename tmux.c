@@ -32,13 +32,13 @@ int tmux_call(char *buffer, size_t bufsize, int nargs, ...) {
 			close(pipefd[1]);
 
 			char *new_cmd[nargs + 2];
-			new_cmd[0] = "/usr/bin/tmux";
+			new_cmd[0] = "tmux";
 			for (int i = 1; i <= nargs; i++) {
 				new_cmd[i] = va_arg(args, char*);
 			}
 
 			new_cmd[nargs+1] = (char*)0;
-			execv(new_cmd[0], new_cmd);
+			execvp(new_cmd[0], new_cmd);
 			_exit(127);
 		}
 		default:

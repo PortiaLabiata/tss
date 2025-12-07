@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #include "common.h"
 #include "apps.h"
@@ -23,6 +24,7 @@ static struct {
 	{"ls", &app_ls},
 	{"ps", &app_ps},
 	{"new", &app_new},
+	{"edit", &app_edit},
 };
 
 static const char *_getenv_path() {
@@ -88,6 +90,8 @@ struct session_s *session_create(const char *name) {
 		err_printf("Could not allocate session\n");
 		exit(-ERR_MEM);
 	}
+	res->next = NULL;
+
 	res->name_size = size;
 	strncpy(res->name, name, size);
 	*strchr(res->name, '.') = 0;
@@ -218,4 +222,38 @@ int app_new(int argc, char **argv) {
 	}
 	fclose(f);
 	return 0;
+}
+
+int app_edit(int argc, char **argv) {
+	if (argc < 1) {
+		err_printf("edit: not enough arguments!\n");
+		exit(-ERR_SYN);
+	}
+
+	struct session_s *head, *ptr;
+	head = ptr = read_sessions();
+
+	while (ptr) {
+		if (streq(argv[0], ptr->name)) {
+			char s[4096] = {0};
+			const char *editor = getenv("EDITOR");
+
+			if (!editor) {
+				err_printf("$EDITOR variable unset!\n");
+				exit(-ERR_ENV);
+			}
+
+			snprintf(s, 4096, "%s/%s.sh", _getenv_path(), argv[0]);
+			printf("%s\n", s);
+			session_free(head);
+
+			execlp(editor, editor, s, (char*)0);
+
+			err_printf("Could not open process %d\n", errno);
+			exit(-ERR_FS);
+		}
+		ptr = ptr->next;
+	}
+	err_printf("Could not find session %s\n", argv[0]);
+	exit(-ERR_FS);
 }
