@@ -18,16 +18,13 @@ static const char *_getenv_path();
 static char buffer[BUFSIZE] = {0};
 
 // Mapping between command name and callback for it
-static struct _cb_map_s {
-	const char *name;
-	app_cb_t callback;
-} _cb_map[] = {
-	{"run", &app_run},
-	{"ls", &app_ls},
-	{"ps", &app_ps},
-	{"new", &app_new},
-	{"edit", &app_edit},
-	{"help", &app_help},
+static struct cb_map_s _cb_map[] = {
+	{"run", &app_run, 1},
+	{"ls", &app_ls, 0},
+	{"ps", &app_ps, 0},
+	{"new", &app_new, 1},
+	{"edit", &app_edit, 1},
+	{"help", &app_help, 0},
 };
 
 // Reads $TMUX_SESSIONS env variable and exits if it is unset
@@ -41,10 +38,10 @@ static const char *_getenv_path() {
 }
 
 // Lookup callback by command name
-app_cb_t find_app_cb(char *name) {
-	for (size_t i = 0; i < sizeof(_cb_map)/sizeof(struct _cb_map_s); i++) {
+struct cb_map_s *find_app(char *name) {
+	for (size_t i = 0; i < sizeof(_cb_map)/sizeof(struct cb_map_s); i++) {
 		if (streq(_cb_map[i].name, name)) {
-			return _cb_map[i].callback;
+			return &_cb_map[i];
 		}
 	}
 	return NULL;
@@ -188,6 +185,13 @@ int app_ps(int argc, char **argv) {
 	int status = tmux_call(buffer, BUFSIZE, 3, "list-sessions", "-F", "#{session_name}");
 	if (status) return status;
 
+	int (*filter)(const char*, void*) = &filter_any;
+
+	// If <name> passed, we only print it, if it exists
+	if (argc > 0) {
+		filter = &filter_exact;	
+	}
+
 	struct session_s *head, *ptr;
 	head = ptr = read_sessions();
 	
@@ -197,14 +201,33 @@ int app_ps(int argc, char **argv) {
 
 	// Print sessions
 	while ((session = strtok(NULL, "\n")) != NULL) {
-		_print_session(session, head);	
+		if (filter(session, argv[0])) {
+			_print_session(session, head);	
+		}
 	}
 
 	session_free(head);
 	return 0;
 }
 
-// TODO: DRY with script lookup
+struct session_s *_lookup_session(struct session_s *head, const char *name) {
+	struct session_s *ptr = head;
+	while (ptr) {
+		if (streq(ptr->name, name)) {
+			break;	
+		}
+		ptr = ptr->next;
+	}
+	return ptr;
+}
+
+const char *_make_spath(const char *name) {
+	#define _BUFSIZE 4096
+	static char s[_BUFSIZE] = {0};
+	snprintf(s, _BUFSIZE, "%s/%s.sh", _getenv_path(), name);
+	return s;
+}
+
 int app_run(int argc, char **argv) {
 	if (argc < 1) {
 		err_printf("run: not enough arguments");
@@ -212,25 +235,21 @@ int app_run(int argc, char **argv) {
 	}
 
 	struct session_s *head, *ptr;
-	head = ptr = read_sessions();
-	
-	while (ptr) {
-		// Search for specified session script
-		if (streq(ptr->name, argv[0])) {
-			// Make script full path
-			// TODO: also DRY
-			char s[4096] = {0};
-			snprintf(s, 4096, "%s/%s.sh", _getenv_path(), ptr->name);
-			session_free(head);
+	head = read_sessions();
+	ptr = _lookup_session(head, argv[0]);
 
-			// Execute subprocess
-			execl(s, s, (char*)0);
-
-			err_printf("run: couldn't launch process\n");
-			exit(-ERR_PROC);
-		}
-		ptr = ptr->next;
+	if (!ptr) {
+		err_printf("run: could not find session %s\n", argv[0]);
+		exit(-ERR_FS);
 	}
+	
+	// Make script full path
+	const char *full_path = _make_spath(ptr->name);
+	session_free(head);
+	// Execute subprocess
+	execl(full_path, full_path, (char*)0);
+
+	err_printf("run: couldn't launch process\n");
 	exit(-ERR_PROC);
 }
 
@@ -241,15 +260,14 @@ int app_new(int argc, char **argv) {
 		exit(-ERR_SYN);
 	}
 
-	char s[4096] = {0};
-	snprintf(s, 4096, "%s/%s.sh", _getenv_path(), argv[0]);
+	const char *full_path = _make_spath(argv[0]);
 
 	// Create session script and allow it's execution 
-	FILE *f = fopen(s, "a");
-	chmod(s, S_IRWXU);
+	FILE *f = fopen(full_path, "a");
+	chmod(full_path, S_IRWXU);
 
 	if (!f) {
-		err_printf("Could not create file %s\n", s);
+		err_printf("Could not create file %s\n", full_path);
 		exit(-ERR_FS);
 	}
 	fclose(f);
@@ -264,30 +282,28 @@ int app_edit(int argc, char **argv) {
 	}
 
 	struct session_s *head, *ptr;
-	head = ptr = read_sessions();
+	head = read_sessions();
 
-	while (ptr) {
-		if (streq(argv[0], ptr->name)) {
-			char s[4096] = {0};
-			const char *editor = getenv("EDITOR");
-
-			if (!editor) {
-				err_printf("$EDITOR variable unset!\n");
-				exit(-ERR_ENV);
-			}
-
-			snprintf(s, 4096, "%s/%s.sh", _getenv_path(), argv[0]);
-			printf("%s\n", s);
-			session_free(head);
-
-			execlp(editor, editor, s, (char*)0);
-
-			err_printf("Could not open process %d\n", errno);
-			exit(-ERR_FS);
-		}
-		ptr = ptr->next;
+	ptr = _lookup_session(head, argv[0]);
+	if (!ptr) {
+		err_printf("edit: could not find session %s\n", argv[0]);
+		exit(-ERR_FS);
 	}
-	err_printf("Could not find session %s\n", argv[0]);
+
+	const char *editor = getenv("EDITOR");
+
+	if (!editor) {
+		err_printf("$EDITOR variable unset!\n");
+		exit(-ERR_ENV);
+	}
+
+	const char *full_path = _make_spath(argv[0]);
+	printf("%s\n", full_path);
+	session_free(head);
+
+	execlp(editor, editor, full_path, (char*)0);
+
+	err_printf("Could not open process %d\n", errno);
 	exit(-ERR_FS);
 }
 

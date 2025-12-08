@@ -8,7 +8,13 @@ struct session_s {
 	char name[];
 };
 
-app_cb_t find_app_cb(char *name);
+struct cb_map_s {
+	const char *name;
+	app_cb_t callback;
+	size_t min_args;
+};
+
+struct cb_map_s *find_app(char *name);
 int app_ls(int argc, char **argv);
 
 struct session_s *session_create(const char *name);
