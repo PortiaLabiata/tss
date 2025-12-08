@@ -18,3 +18,7 @@ $(LINK_TARGET): $(OBJS)
 clean:
 	rm *.o 
 	rm $(LINK_TARGET)
+
+.PHONY: install
+install: all
+	sudo cp $(LINK_TARGET) /usr/bin

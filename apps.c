@@ -23,6 +23,7 @@ static struct cb_map_s _cb_map[] = {
 	{"ls", &app_ls, 0},
 	{"ps", &app_ps, 0},
 	{"new", &app_new, 1},
+	{"rm", &app_rm, 1},
 	{"edit", &app_edit, 1},
 	{"help", &app_help, 0},
 };
@@ -229,11 +230,7 @@ const char *_make_spath(const char *name) {
 }
 
 int app_run(int argc, char **argv) {
-	if (argc < 1) {
-		err_printf("run: not enough arguments");
-		exit(-ERR_SYN);
-	}
-
+	(void)argc; (void)argv;
 	struct session_s *head, *ptr;
 	head = read_sessions();
 	ptr = _lookup_session(head, argv[0]);
@@ -255,11 +252,7 @@ int app_run(int argc, char **argv) {
 
 // TODO: DRY in argc check!
 int app_new(int argc, char **argv) {
-	if (argc < 1) {
-		err_printf("new: not enough arguments!\n");
-		exit(-ERR_SYN);
-	}
-
+	(void)argc; (void)argv;
 	const char *full_path = _make_spath(argv[0]);
 
 	// Create session script and allow it's execution 
@@ -276,11 +269,7 @@ int app_new(int argc, char **argv) {
 
 // TODO: open in designated session
 int app_edit(int argc, char **argv) {
-	if (argc < 1) {
-		err_printf("edit: not enough arguments!\n");
-		exit(-ERR_SYN);
-	}
-
+	(void)argc; (void)argv;
 	struct session_s *head, *ptr;
 	head = read_sessions();
 
@@ -305,6 +294,25 @@ int app_edit(int argc, char **argv) {
 
 	err_printf("Could not open process %d\n", errno);
 	exit(-ERR_FS);
+}
+
+int app_rm(int argc, char **argv) {
+	(void)argc; (void)argv;
+	struct session_s *head, *ptr;
+	head = read_sessions();
+	ptr = _lookup_session(head, argv[0]);
+	if (!ptr) {
+		err_printf("Could not find session %s\n", argv[0]);
+		exit(-ERR_FS);
+	}
+	session_free(head);
+
+	const char *full_path = _make_spath(argv[0]);
+	if (remove(full_path) < 0) {
+		err_printf("Could not remove file %s\n", full_path);
+		exit(-ERR_FS);
+	}
+	return 0;
 }
 
 int app_help(int argc, char **argv) {
