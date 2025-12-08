@@ -62,11 +62,13 @@ static int _putn_name(const char *name, int size) {
 	return i;
 }
 
+int endswith(const char *s, const char *suf) {
+	return strlen(suf) < strlen(s) && streq(s + strlen(s) - strlen(suf), suf);
+}
+
 // Is given file a session script?
 static int _invalid_file(struct dirent *file) {
-	return streq(file->d_name, ".") || streq(file->d_name, "..") \
-					|| streq(file->d_name, "build.sh") \
-					|| streq(file->d_name, "template.sh") \
+	return !endswith(file->d_name, ".conf") \
 					|| file->d_type != DT_REG;
 }
 
@@ -225,7 +227,7 @@ struct session_s *_lookup_session(struct session_s *head, const char *name) {
 const char *_make_spath(const char *name) {
 	#define _BUFSIZE 4096
 	static char s[_BUFSIZE] = {0};
-	snprintf(s, _BUFSIZE, "%s/%s.sh", _getenv_path(), name);
+	snprintf(s, _BUFSIZE, "%s/%s.conf", _getenv_path(), name);
 	return s;
 }
 
@@ -244,9 +246,9 @@ int app_run(int argc, char **argv) {
 	const char *full_path = _make_spath(ptr->name);
 	session_free(head);
 	// Execute subprocess
-	execl(full_path, full_path, (char*)0);
+	execlp("tmux", "tmux", "start", ";", "source", full_path, (char*)0);
 
-	err_printf("run: couldn't launch process\n");
+	err_printf("run: couldn't launch process %d\n", errno);
 	exit(-ERR_PROC);
 }
 
@@ -323,6 +325,7 @@ int app_help(int argc, char **argv) {
 	puts("ps \t - \t list all active TSS sessions;");
 	puts("new \t - \t create new session script;");
 	puts("edit \t - \t edit session script;");
-	puts("run \t - \t run session script.");
+	puts("run \t - \t run session script;");
+	puts("rm \t - \t remove session script.");
 	return 0;
 }
