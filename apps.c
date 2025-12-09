@@ -19,13 +19,13 @@ static char buffer[BUFSIZE] = {0};
 
 // Mapping between command name and callback for it
 static struct cb_map_s _cb_map[] = {
-	{"run", &app_run, 1},
-	{"ls", &app_ls, 0},
-	{"ps", &app_ps, 0},
-	{"new", &app_new, 1},
-	{"rm", &app_rm, 1},
-	{"edit", &app_edit, 1},
-	{"help", &app_help, 0},
+	{"run", &app_run, 1, "<session> start session or attach to it, if it is already running."},
+	{"ls", &app_ls, 0, "<opt:name> list sessions or find session named <name>, doesn't support wildcards."},
+	{"ps", &app_ps, 0, "<opt:name> like ls, but with running sessions."},
+	{"new", &app_new, 1, "<name> create new empty session script."},
+	{"rm", &app_rm, 1, "<name> remove session script."},
+	{"edit", &app_edit, 1, "<name> open session script in $EDITOR."},
+	{"help", &app_help, 0, "display this message."},
 };
 
 // Reads $TMUX_SESSIONS env variable and exits if it is unset
@@ -319,13 +319,9 @@ int app_rm(int argc, char **argv) {
 
 int app_help(int argc, char **argv) {
 	(void)argc; (void)argv;
-	puts("TSS - a simple tmux session resurrector.");
-	puts("Usage: tss <command> <args>");
-	puts("ls \t - \t list all session scripts in $TMUX_SESSIONS directory;");
-	puts("ps \t - \t list all active TSS sessions;");
-	puts("new \t - \t create new session script;");
-	puts("edit \t - \t edit session script;");
-	puts("run \t - \t run session script;");
-	puts("rm \t - \t remove session script.");
+	for (size_t i = 0; i < sizeof(_cb_map)/sizeof(struct cb_map_s); i++) {
+		struct cb_map_s *map = &_cb_map[i];
+		printf("%s\t-\t%s\n", map->name, map->help);
+	}
 	return 0;
 }

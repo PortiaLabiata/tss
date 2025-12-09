@@ -12,6 +12,7 @@ struct cb_map_s {
 	const char *name;
 	app_cb_t callback;
 	size_t min_args;
+	const char *help;
 };
 
 struct cb_map_s *find_app(char *name);
