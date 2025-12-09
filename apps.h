@@ -29,3 +29,4 @@ int app_new(int argc, char **argv);
 int app_edit(int argc, char **argv);
 int app_help(int argc, char **argv);
 int app_rm(int argc, char **argv);
+int app_save(int argc, char **argv);

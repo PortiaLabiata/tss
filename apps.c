@@ -25,6 +25,7 @@ static struct cb_map_s _cb_map[] = {
 	{"new", &app_new, 1, "<name> create new empty session script."},
 	{"rm", &app_rm, 1, "<name> remove session script."},
 	{"edit", &app_edit, 1, "<name> open session script in $EDITOR."},
+	{"save", &app_save, 1, "<name> <opt:script_name> save running tmux session to a new session script."},
 	{"help", &app_help, 0, "display this message."},
 };
 
@@ -233,6 +234,11 @@ const char *_make_spath(const char *name) {
 
 int app_run(int argc, char **argv) {
 	(void)argc; (void)argv;
+
+	if (!tmux_has_session(argv[0])) {
+		execlp("tmux", "tmux", "attach", "-t", argv[0], (char*)0);
+	}
+
 	struct session_s *head, *ptr;
 	head = read_sessions();
 	ptr = _lookup_session(head, argv[0]);
@@ -243,8 +249,9 @@ int app_run(int argc, char **argv) {
 	}
 	
 	// Make script full path
-	const char *full_path = _make_spath(ptr->name);
+	const char *full_path = NULL;
 	session_free(head);
+	full_path = _make_spath(argv[0]);
 	// Execute subprocess
 	execlp("tmux", "tmux", "start", ";", "source", full_path, (char*)0);
 
@@ -323,5 +330,10 @@ int app_help(int argc, char **argv) {
 		struct cb_map_s *map = &_cb_map[i];
 		printf("%s\t-\t%s\n", map->name, map->help);
 	}
+	return 0;
+}
+
+int app_save(int argc, char **argv) {
+	(void)argc; (void)argv;
 	return 0;
 }

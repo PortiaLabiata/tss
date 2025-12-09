@@ -55,6 +55,7 @@ int tmux_call(char *buffer, size_t bufsize, int nargs, ...) {
 	while ((wpid = waitpid(pid, &status, WNOHANG)) == 0) {
 		// Read stdout from pipe to buffer, until process
 		// exits
+		if (!buffer) continue;
 		ssize_t size = read(pipefd[0], buffer+pos, 
 						bufsize - pos - 1);
 		if (size < 0) continue;
@@ -72,4 +73,8 @@ int tmux_call(char *buffer, size_t bufsize, int nargs, ...) {
 
 int tmux_start() {
 	return tmux_call(NULL, 0, 1, "start-server");
+}
+
+int tmux_has_session(const char *sname) {
+	return tmux_call(NULL, 0, 3, "has", "-t", sname);
 }

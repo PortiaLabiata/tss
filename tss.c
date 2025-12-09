@@ -20,6 +20,6 @@ int main(int argc, char **argv) {
 		exit(-ERR_SYN);
 	}
 
-	app->callback(argc-2, &argv[2]);
+	app->callback(argc-2, argv+2);
 	return 0;
 }
