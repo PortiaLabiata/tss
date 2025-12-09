@@ -13,7 +13,6 @@
 #define MAX_NAME_LEN 258
 #define BUFSIZE 4096
 
-static const char *_getenv_path();
 // Buffer for subprocess stdin reading
 static char buffer[BUFSIZE] = {0};
 
@@ -30,7 +29,7 @@ static struct cb_map_s _cb_map[] = {
 };
 
 // Reads $TMUX_SESSIONS env variable and exits if it is unset
-static const char *_getenv_path() {
+const char *_getenv_path() {
 	const char *_res = getenv("TMUX_SESSIONS");
 	if (_res == NULL) {
 		err_printf("TMUX_SESSIONS variable unset!\n");	
@@ -70,7 +69,7 @@ int endswith(const char *s, const char *suf) {
 // Is given file a session script?
 static int _invalid_file(struct dirent *file) {
 	return !endswith(file->d_name, ".conf") \
-					|| file->d_type != DT_REG;
+					&& file->d_type != DT_REG;
 }
 
 // Find position, where extension separator begins
@@ -335,5 +334,20 @@ int app_help(int argc, char **argv) {
 
 int app_save(int argc, char **argv) {
 	(void)argc; (void)argv;
+	struct t_window_s *last = tmux_get_windows(argv[0]);
+	if (!last) {
+		err_printf("Couldn't read session!\n");
+		exit(-ERR_PROC);
+	}
+	const char *sname = argv[0];
+	if (argc > 1) {
+		sname = argv[1];	
+	} 
+
+	if (tmux_save_windows(sname, last)) {
+		err_printf("Couldn't save file %s\n", argv[1]);
+		exit(-ERR_FS);
+	}
+	t_windows_free(last);
 	return 0;
 }

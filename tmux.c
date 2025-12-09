@@ -1,10 +1,13 @@
 #include <stdarg.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <sys/wait.h>
 #include <fcntl.h>
 
 #include "common.h"
 #include "tmux.h"
+
+static const char *_window_format = "#{window_index}\t#{window_name}\t#{pane_path}";
 
 // Calls a specified set of tmux commands and writes stdout to buffer
 int tmux_call(char *buffer, size_t bufsize, int nargs, ...) {
@@ -77,4 +80,112 @@ int tmux_start() {
 
 int tmux_has_session(const char *sname) {
 	return tmux_call(NULL, 0, 3, "has", "-t", sname);
+}
+
+char *_tmux_get_windows(const char *sname) {
+	#define _BUFSIZE 4096
+	static char buffer[_BUFSIZE] = {0};
+	tmux_call(buffer, _BUFSIZE, 5, "list-windows", "-F", _window_format, \
+					"-t", sname);
+	return buffer;
+}
+
+enum wstr_idx_e {
+	WSTR_IDX_IDX = 0,
+	WSTR_IDX_NAME,
+	WSTR_IDX_PATH,
+	WSTR_IDX_MAX
+};
+
+struct t_window_s *t_window_parse(char *_str) {
+	struct t_window_s *res = malloc(sizeof(struct t_window_s));	
+	memset(res, 0, sizeof(struct t_window_s));
+
+	char *str, *token, *sptr;
+	int i = 0;
+	for (str = _str; ; i++, str = NULL) {
+		token = strtok_r(str, "\t", &sptr);
+		if (!token)
+			break;
+		switch ((enum wstr_idx_e)i) {
+			case WSTR_IDX_IDX:
+				res->idx = atoi(token);
+				break;
+			case WSTR_IDX_NAME:
+				strncpy(res->name, token, MAX_NAME);
+				break;
+			case WSTR_IDX_PATH:
+				strncpy(res->path, token, MAX_PATH);
+				break;
+			default:
+				break;
+		}
+	}
+	if (i - WSTR_IDX_MAX > 1) {
+		free(res);
+		return NULL;
+	}
+	return res;
+}
+
+void t_windows_free(struct t_window_s *last) {
+	struct t_window_s *prev = last;
+	while (last) {
+		prev = last;
+		last = prev->prev;
+		free(prev);
+	}
+}
+
+struct t_window_s *tmux_get_windows(const char *sname) {
+	char *windows = _tmux_get_windows(sname);
+
+	char *str1; 
+	char *token;
+	char *sptr1;
+	struct t_window_s *prev, *swind;
+	prev = swind = NULL;
+
+	for (str1 = windows; ; str1 = NULL) {
+		token = strtok_r(str1, "\n", &sptr1);
+		if (!token) 
+			break;
+		swind = t_window_parse(token);
+		if (!swind) {
+			t_windows_free(swind);
+			return NULL;
+		}
+		swind->prev = prev;
+		prev = swind;
+	}
+	return swind;
+}
+
+const char *_make_wpath(const char *name) {
+	static char path[MAX_PATH] = {0};
+	const char *env = _getenv_path();
+	snprintf(path, MAX_PATH, "%s/%s.conf", env, name);	
+	return path;
+}
+
+int _tmux_save_window(FILE *file, struct t_window_s *wind) {
+	return fprintf(file, "new-window -n %s -c %s\n", wind->name, wind->path) > 0;
+}
+
+int tmux_save_windows(const char *fname, struct t_window_s *last) {
+	struct t_window_s *prev = last;
+
+	FILE *file = fopen(_make_wpath(fname), "w");
+	if (!file) {
+		return -1;
+	}
+	fprintf(file, "new -s %s\n", fname);
+	while (last) {
+		_tmux_save_window(file, last);	
+		last = prev->prev;
+		prev = last;
+	}
+	fputs("killw -t 1\n", file);
+	fclose(file);
+	return 0;
 }

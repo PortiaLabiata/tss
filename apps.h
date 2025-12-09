@@ -16,7 +16,7 @@ struct cb_map_s {
 };
 
 struct cb_map_s *find_app(char *name);
-int app_ls(int argc, char **argv);
+const char *_getenv_path();
 
 struct session_s *session_create(const char *name);
 struct session_s *read_sessions();
