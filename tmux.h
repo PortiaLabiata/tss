@@ -19,3 +19,4 @@ int tmux_has_session(const char *sname);
 struct t_window_s *tmux_get_windows(const char *sname);
 int tmux_save_windows(const char *fpath, struct t_window_s *last);
 void t_windows_free(struct t_window_s *last);
+struct t_window_s *_invert_windows(struct t_window_s *last);

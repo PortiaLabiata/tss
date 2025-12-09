@@ -335,6 +335,7 @@ int app_help(int argc, char **argv) {
 int app_save(int argc, char **argv) {
 	(void)argc; (void)argv;
 	struct t_window_s *last = tmux_get_windows(argv[0]);
+	last = _invert_windows(last);
 	if (!last) {
 		err_printf("Couldn't read session!\n");
 		exit(-ERR_PROC);

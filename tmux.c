@@ -169,7 +169,19 @@ const char *_make_wpath(const char *name) {
 }
 
 int _tmux_save_window(FILE *file, struct t_window_s *wind) {
-	return fprintf(file, "new-window -n %s -c %s\n", wind->name, wind->path) > 0;
+	return fprintf(file, "new-window -n %s -c %s -t %d\n", wind->name, wind->path, wind->idx) > 0;
+}
+
+struct t_window_s *_invert_windows(struct t_window_s *last) {
+	struct t_window_s *prev, *curr, *next;	
+	prev = next = NULL; curr = last;
+
+	while (curr) {
+		prev = curr->prev;
+		curr->prev = next;
+		next = curr; curr = prev;
+	}
+	return next;
 }
 
 int tmux_save_windows(const char *fname, struct t_window_s *last) {
@@ -181,11 +193,14 @@ int tmux_save_windows(const char *fname, struct t_window_s *last) {
 	}
 	fprintf(file, "new -s %s\n", fname);
 	while (last) {
-		_tmux_save_window(file, last);	
+		if (last->idx != 1) {
+			_tmux_save_window(file, last);	
+		} else {
+			fprintf(file, "renamew -t 1 %s\n", last->name);
+		}
 		last = prev->prev;
 		prev = last;
 	}
-	fputs("killw -t 1\n", file);
 	fclose(file);
 	return 0;
 }
